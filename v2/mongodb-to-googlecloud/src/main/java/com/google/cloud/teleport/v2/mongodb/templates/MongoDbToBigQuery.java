@@ -15,13 +15,12 @@
  */
 package com.google.cloud.teleport.v2.mongodb.templates;
 
-import static com.google.cloud.teleport.v2.utils.KMSUtils.maybeDecrypt;
-
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.teleport.metadata.Template;
 import com.google.cloud.teleport.metadata.TemplateCategory;
 import com.google.cloud.teleport.v2.common.UncaughtExceptionLogger;
+import com.google.cloud.teleport.v2.gcp.SecretManager;
 import com.google.cloud.teleport.v2.mongodb.options.MongoDbToBigQueryOptions.BigQueryWriteOptions;
 import com.google.cloud.teleport.v2.mongodb.options.MongoDbToBigQueryOptions.JavascriptDocumentTransformerOptions;
 import com.google.cloud.teleport.v2.mongodb.options.MongoDbToBigQueryOptions.MongoDbOptions;
@@ -66,6 +65,9 @@ import org.bson.Document;
       "The source MongoDB instance must be accessible from the Dataflow worker machines."
     })
 public class MongoDbToBigQuery {
+
+  public static final String DISPOSITION_APPEND = "APPEND";
+
   /**
    * Options supported by {@link MongoDbToBigQuery}
    *
@@ -104,7 +106,15 @@ public class MongoDbToBigQuery {
     TableSchema bigquerySchema;
 
     // Get MongoDbUri plain text or base64 encrypted with a specific KMS encryption key
-    String mongoDbUri = maybeDecrypt(options.getMongoDbUri(), options.getKMSEncryptionKey()).get();
+    SecretManager secretManager = new SecretManager();
+
+    String mongoDbUri =
+        null; // maybeDecrypt(options.getMongoDbUri(), options.getKMSEncryptionKey()).get();
+    try {
+      mongoDbUri = secretManager.getSecret("ford-56523c6b69e11c2eb6bd7087", "");
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
     if (options.getJavascriptDocumentTransformFunctionName() != null
         && options.getJavascriptDocumentTransformGcsPath() != null) {
@@ -121,6 +131,11 @@ public class MongoDbToBigQuery {
           MongoDbUtils.getTableFieldSchema(
               mongoDbUri, options.getDatabase(), options.getCollection(), options.getUserOption());
     }
+
+    BigQueryIO.Write.WriteDisposition disposition =
+        DISPOSITION_APPEND.equalsIgnoreCase(options.getDisposition())
+            ? BigQueryIO.Write.WriteDisposition.WRITE_APPEND
+            : BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE;
 
     pipeline
         .apply(
@@ -153,7 +168,7 @@ public class MongoDbToBigQuery {
                 .to(options.getOutputTableSpec())
                 .withSchema(bigquerySchema)
                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
-                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND));
+                .withWriteDisposition(disposition));
     pipeline.run();
     return true;
   }

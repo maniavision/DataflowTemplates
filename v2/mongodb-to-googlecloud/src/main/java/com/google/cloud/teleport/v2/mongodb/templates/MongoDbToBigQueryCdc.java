@@ -76,6 +76,7 @@ import org.slf4j.LoggerFactory;
 public class MongoDbToBigQueryCdc {
 
   private static final Logger LOG = LoggerFactory.getLogger(MongoDbToBigQuery.class);
+  public static final String DISPOSITION_APPEND = "APPEND";
 
   /** Options interface. */
   public interface Options
@@ -95,8 +96,9 @@ public class MongoDbToBigQueryCdc {
         helpText =
             "This parameter takes effect only if \"Use BigQuery Storage Write API\" is enabled. If"
                 + " enabled the at-least-once semantics will be used for Storage Write API, otherwise"
-                + " exactly-once semantics will be used.",
-        hiddenUi = true)
+                + " exactly-once semantics will be used."
+        //        hiddenUi = true
+        )
     @Default.Boolean(false)
     @Override
     Boolean getUseStorageWriteApiAtLeastOnce();
@@ -156,6 +158,11 @@ public class MongoDbToBigQueryCdc {
               mongoDbUri, options.getDatabase(), options.getCollection(), options.getUserOption());
     }
 
+    BigQueryIO.Write.WriteDisposition writeDisposition =
+        DISPOSITION_APPEND.equalsIgnoreCase(options.getDisposition())
+            ? BigQueryIO.Write.WriteDisposition.WRITE_APPEND
+            : BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE;
+
     pipeline
         .apply("Read PubSub Messages", PubsubIO.readStrings().fromTopic(inputOption))
         .apply(
@@ -190,7 +197,7 @@ public class MongoDbToBigQueryCdc {
                 .to(options.getOutputTableSpec())
                 .withSchema(bigquerySchema)
                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED)
-                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND));
+                .withWriteDisposition(writeDisposition));
     pipeline.run();
     return true;
   }

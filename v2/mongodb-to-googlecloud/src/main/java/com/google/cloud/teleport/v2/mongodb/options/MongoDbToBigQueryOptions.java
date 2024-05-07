@@ -78,6 +78,15 @@ public class MongoDbToBigQueryOptions {
     String getKMSEncryptionKey();
 
     void setKMSEncryptionKey(String keyName);
+
+    @TemplateParameter.Enum(
+        order = 6,
+        enumOptions = {@TemplateEnumOption("APPEND"), @TemplateEnumOption("TRUNCATE")},
+        description = "WriteDisposition",
+        helpText = "WriteDisposition: `APPEND` or `TRUNCATE`.")
+    String getDisposition();
+
+    void setDisposition(String disposition);
   }
 
   /** Options for reading from PubSub. */
