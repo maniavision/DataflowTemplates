@@ -1,0 +1,12 @@
+
+steps:
+  - name: 'gcr.io/cloud-builders/mvn'
+    args:
+    - 'clean'
+    - 'package'
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['config', 'set', 'auth/impersonate_service_account', 'sa-cvdos-cst-impersonate@ford-56523c6b69e11c2eb6bd7087.iam.gserviceaccount.com']
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['dataflow', ' flex-template', 'build', 'gs://prj-cvdos-cst-custom-flex-templates/mongoDbToBigQuery.json', '--image-gcr-path "us-central1-docker.pkg.dev/ford-56523c6b69e11c2eb6bd7087/custom-flex-templates/mongodb-to-googlecloud:latest"', '--sdk-language "JAVA"', '--flex-template-base-image JAVA11', '--jar "target/mongodb-to-googlecloud-1.0-SNAPSHOT.jar"', '--env FLEX_TEMPLATE_JAVA_MAIN_CLASS="com.google.cloud.teleport.v2.mongodb.templates.MongoDbToBigQuery"']
+options:
+  logging: CLOUD_LOGGING_ONY
